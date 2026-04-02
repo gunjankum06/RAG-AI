@@ -75,53 +75,54 @@ A **scalable, production-ready** RAG system powered by **Ollama** (local LLM) an
 
 ## Prerequisites
 
-1. **Python 3.11+** — [python.org](https://www.python.org/downloads/)
-2. **Ollama** — [ollama.com/download](https://ollama.com/download)
+Install the following before you start:
+
+1. **Python 3.11+**
+2. **Ollama** (running locally) — [https://ollama.com/download](https://ollama.com/download)
+3. **Git**
+4. Optional: **Docker Desktop** (if using Docker Compose)
+
+Pull required models once:
 
 ```bash
 ollama pull llama3
 ollama pull nomic-embed-text
 ```
 
-## Quick Start
+Verify Ollama:
 
-### Option A — Local
+```bash
+curl http://localhost:11434/api/tags
+```
 
-#### 1. Clone the repository
+## Quick Start (First 15 Minutes)
+
+This path is optimized for first-time setup and validation.
+
+### 1. Clone and enter the repo
 
 ```bash
 git clone <repo-url> rag-ai
 cd rag-ai
 ```
 
-#### 2. Install and start Ollama
+### 2. Create and activate a virtual environment
 
-Download from [ollama.com/download](https://ollama.com/download), then pull the required models:
-
-```bash
-ollama pull llama3
-ollama pull nomic-embed-text
-```
-
-Verify Ollama is running:
-
-```bash
-curl http://localhost:11434/api/tags
-```
-
-#### 3. Create a virtual environment and install dependencies
+Create venv:
 
 ```bash
 python -m venv .venv
 ```
 
-Activate the virtual environment:
+Activate:
 
 ```powershell
-# Windows (PowerShell)
+# Windows PowerShell
 .venv\Scripts\Activate.ps1
+```
 
-# Windows (CMD)
+```cmd
+:: Windows CMD
 .venv\Scripts\activate.bat
 ```
 
@@ -130,93 +131,257 @@ Activate the virtual environment:
 source .venv/bin/activate
 ```
 
-Install packages:
+### 3. Install dependencies
 
 ```bash
 pip install -r requirements.txt
-pip install python-multipart   # required by FastAPI for file uploads
+pip install python-multipart
 ```
 
-#### 4. Configure environment variables
+### 4. Create `.env`
+
+```powershell
+# Windows PowerShell
+Copy-Item .env.example .env
+```
 
 ```bash
 # macOS / Linux
 cp .env.example .env
-
-# Windows (PowerShell)
-Copy-Item .env.example .env
 ```
 
-Open `.env` and set your `API_KEY` to a secure random string:
+Edit `.env` and set at least:
 
-```
-API_KEY=your-secure-random-key-here
+```env
+API_KEY=replace-with-a-strong-random-secret
 ```
 
-#### 5. Start the API server
+### 5. Start API server
 
 ```bash
 uvicorn src.api.server:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-The server is ready when you see:
+Expected startup lines:
 
-```
-INFO:     Application startup complete.
+```text
 INFO:     Uvicorn running on http://0.0.0.0:8000
 ```
 
-Verify by visiting the health endpoint:
+### 6. Verify health
 
 ```bash
-curl http://localhost:8000/health
+curl http://127.0.0.1:8000/health
 ```
 
-#### 6. (Optional) Start the Streamlit UI
+Expected response shape:
 
-In a separate terminal (with the virtual environment activated):
+```json
+{"status":"healthy","ollama":true,"vector_store":true,"version":"2.2.0"}
+```
+
+### 7. Ingest your first document
+
+Supported file types: `.pdf`, `.txt`, `.md`, `.docx`
+
+PowerShell example:
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/api/v1/ingest" `
+       -H "X-API-Key: replace-with-a-strong-random-secret" `
+       -F "collection=default" `
+       -F "files=@data\sample.txt"
+```
+
+Bash example:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/ingest" \
+       -H "X-API-Key: replace-with-a-strong-random-secret" \
+       -F "collection=default" \
+       -F "files=@data/sample.txt"
+```
+
+Expected successful fields:
+
+- `status: completed`
+- `documents_loaded > 0`
+- `chunks_stored > 0`
+
+### 8. Query your collection
+
+PowerShell example:
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/api/v1/query" `
+       -H "X-API-Key: replace-with-a-strong-random-secret" `
+       -H "Content-Type: application/json" `
+       -d "{\"question\":\"Summarize the uploaded document\",\"collection\":\"default\",\"top_k\":5,\"rerank\":true,\"stream\":false,\"chat_history\":[]}"
+```
+
+Bash example:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/query" \
+       -H "X-API-Key: replace-with-a-strong-random-secret" \
+       -H "Content-Type: application/json" \
+       -d '{"question":"Summarize the uploaded document","collection":"default","top_k":5,"rerank":true,"stream":false,"chat_history":[]}'
+```
+
+### 9. Open API docs
+
+- Swagger UI: `http://127.0.0.1:8000/docs`
+- ReDoc: `http://127.0.0.1:8000/redoc`
+
+## Streamlit UI (Optional)
+
+Start in another terminal (venv activated):
 
 ```bash
 streamlit run src/ui/app.py
 ```
 
-#### Access points
+Open `http://127.0.0.1:8501` and set:
 
-| Service | URL |
-|---------|-----|
-| **API** | `http://localhost:8000` |
-| **API Docs (Swagger)** | `http://localhost:8000/docs` |
-| **API Docs (ReDoc)** | `http://localhost:8000/redoc` |
-| **Streamlit UI** | `http://localhost:8501` |
+- API URL: `http://127.0.0.1:8000`
+- API Key: your `.env` API key
+- Collection: `default` (or your custom collection)
 
-#### 7. Run the tests
+## Docker Compose
 
-```bash
-pytest tests/ -v
-```
+### 1. Create `.env`
 
----
-
-### Option B — Docker Compose
-
-```bash
-# macOS / Linux
-cp .env.example .env
-
-# Windows (PowerShell)
+```powershell
 Copy-Item .env.example .env
 ```
 
-Edit `.env` and set your `API_KEY`, then:
+Set `API_KEY` in `.env`.
+
+### 2. Start all services
 
 ```bash
 docker compose up --build
 ```
 
 Services:
-- **API** → `http://localhost:8000`
-- **API Docs** → `http://localhost:8000/docs`
-- **Streamlit UI** → `http://localhost:8501`
+
+- API: `http://127.0.0.1:8000`
+- API docs: `http://127.0.0.1:8000/docs`
+- UI: `http://127.0.0.1:8501`
+
+### 3. Stop services
+
+```bash
+docker compose down
+```
+
+## How To Use The API
+
+All protected endpoints require header:
+
+```text
+X-API-Key: <your-api-key>
+```
+
+### Endpoint summary
+
+- `GET /health` - health status (no API key required)
+- `POST /api/v1/ingest` - upload and index files
+- `POST /api/v1/query` - ask questions over indexed docs
+- `GET /api/v1/collections` - list collections
+- `DELETE /api/v1/collections/{name}` - delete a collection
+
+### `POST /api/v1/ingest`
+
+Form fields:
+
+- `files` (required, multi-file)
+- `collection` (optional, default: `default`, allowed: letters/numbers/`_`/`-`)
+
+### `POST /api/v1/query`
+
+JSON body example:
+
+```json
+{
+       "question": "What does the policy say about data retention?",
+       "collection": "default",
+       "top_k": 5,
+       "rerank": true,
+       "stream": false,
+       "chat_history": [
+              {"role": "user", "content": "We uploaded the policy doc earlier."}
+       ]
+}
+```
+
+## Development Commands
+
+If `make` is available:
+
+```bash
+make dev         # install runtime + dev deps
+make run         # start FastAPI
+make run-ui      # start Streamlit
+make test        # run tests
+make lint        # lint and format checks
+make format      # auto-fix lint + format
+```
+
+Windows note: GNU `make` may not be installed by default. If unavailable, run Python/pip/uvicorn commands directly.
+
+## Quick Demo Script
+
+Use this when you want to verify end-to-end behavior quickly.
+
+### PowerShell demo
+
+```powershell
+# 1) Set your API key from .env
+$API_KEY = "replace-with-a-strong-random-secret"
+
+# 2) Create a small sample file
+"RAG AI demo document. This project supports ingestion and question answering." | Out-File -FilePath data\demo.txt -Encoding utf8
+
+# 3) Ingest
+curl.exe -X POST "http://127.0.0.1:8000/api/v1/ingest" `
+         -H "X-API-Key: $API_KEY" `
+         -F "collection=demo" `
+         -F "files=@data\demo.txt"
+
+# 4) Query
+curl.exe -X POST "http://127.0.0.1:8000/api/v1/query" `
+         -H "X-API-Key: $API_KEY" `
+         -H "Content-Type: application/json" `
+         -d "{\"question\":\"What is this demo document about?\",\"collection\":\"demo\",\"top_k\":5,\"rerank\":true,\"stream\":false,\"chat_history\":[]}"
+```
+
+### Bash demo
+
+```bash
+# 1) Set your API key from .env
+API_KEY="replace-with-a-strong-random-secret"
+
+# 2) Create a small sample file
+echo "RAG AI demo document. This project supports ingestion and question answering." > data/demo.txt
+
+# 3) Ingest
+curl -X POST "http://127.0.0.1:8000/api/v1/ingest" \
+       -H "X-API-Key: ${API_KEY}" \
+       -F "collection=demo" \
+       -F "files=@data/demo.txt"
+
+# 4) Query
+curl -X POST "http://127.0.0.1:8000/api/v1/query" \
+       -H "X-API-Key: ${API_KEY}" \
+       -H "Content-Type: application/json" \
+       -d '{"question":"What is this demo document about?","collection":"demo","top_k":5,"rerank":true,"stream":false,"chat_history":[]}'
+```
+
+Expected result:
+
+- Ingest response should show `status: completed`.
+- Query response should include `answer` and at least one `sources` entry.
 
 ## Project Structure
 
@@ -321,6 +486,35 @@ All settings via environment variables (`.env`):
 | `DLP_SCAN_INGESTION` | `true` | Scan documents before storing |
 | `DLP_BLOCK_SEVERITY` | `critical` | Block if severity ≥ threshold |
 | `DLP_REDACT_SEVERITY` | `high` | Redact if severity ≥ threshold |
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| `401 Invalid or missing API key` | Wrong or missing `X-API-Key` header | Send the exact API key from `.env` |
+| `429 Rate limit exceeded` | Too many requests/min | Slow requests or increase `RATE_LIMIT_PER_MINUTE` |
+| Health shows `"ollama": false` | Ollama not running / wrong URL | Start Ollama and verify `OLLAMA_BASE_URL` |
+| Ingest returns "No supported files provided" | Unsupported file extension | Use `.pdf`, `.txt`, `.md`, or `.docx` |
+| `413` on upload | File exceeds max limit | Increase `MAX_UPLOAD_SIZE_MB` or upload smaller files |
+| Query quality is poor | Few chunks retrieved or no rerank | Increase `TOP_K`, keep `RERANK_ENABLED=true`, ingest better docs |
+| CORS issues in browser app | Origin not allowed | Set `CORS_ORIGINS` appropriately in `.env` |
+
+## Security Notes
+
+- Always change `API_KEY` before exposing the service outside localhost.
+- In production, set strict `CORS_ORIGINS` (avoid `[*]`).
+- Keep guardrails and DLP enabled unless you have a specific reason to disable them.
+- Do not upload secrets or regulated data unless your policy allows it.
+
+## Validation Checklist
+
+Use this checklist after setup:
+
+1. `GET /health` returns `status: healthy`.
+2. `POST /api/v1/ingest` stores chunks successfully.
+3. `POST /api/v1/query` returns an `answer` and non-empty `sources`.
+4. Streamlit UI can ingest and answer from the same collection.
+5. `GET /api/v1/collections` shows your collection.
 
 ## Scaling Guide
 
