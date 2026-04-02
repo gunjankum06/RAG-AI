@@ -1,0 +1,41 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: rag-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: rag-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+    volumes:
+      - ./storage:/app/storage
+      - ./data:/app/data
+    depends_on:
+      - ollama
+
+  ui:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: rag-ui
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    command: ["streamlit", "run", "src/ui/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+    depends_on:
+      - api
+
+volumes:
+  ollama_data:
