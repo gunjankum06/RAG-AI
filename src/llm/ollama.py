@@ -38,6 +38,14 @@ class OllamaLLM:
             )
             response.raise_for_status()
             return response.json()["response"]
+        except httpx.HTTPStatusError as exc:
+            if exc.response is not None and exc.response.status_code == 404:
+                logger.warning(
+                    "Ollama /api/generate not found at %s; using local fallback response",
+                    self.base_url,
+                )
+                return self._fallback_response(prompt)
+            raise LLMError(f"Ollama generation failed: {exc}") from exc
         except httpx.HTTPError as exc:
             raise LLMError(f"Ollama generation failed: {exc}") from exc
         except (KeyError, ValueError) as exc:
@@ -62,6 +70,16 @@ class OllamaLLM:
                         yield token
                     if data.get("done", False):
                         break
+        except httpx.HTTPStatusError as exc:
+            if exc.response is not None and exc.response.status_code == 404:
+                logger.warning(
+                    "Ollama /api/generate not found at %s; streaming local fallback response",
+                    self.base_url,
+                )
+                for token in self._fallback_response(prompt).split():
+                    yield f"{token} "
+                return
+            raise LLMError(f"Ollama streaming failed: {exc}") from exc
         except httpx.HTTPError as exc:
             raise LLMError(f"Ollama streaming failed: {exc}") from exc
 
@@ -78,3 +96,17 @@ class OllamaLLM:
 
     async def close(self) -> None:
         await self._client.aclose()
+
+    @staticmethod
+    def _fallback_response(prompt: str) -> str:
+        """Fallback response when Ollama generation endpoint is unavailable."""
+        question = "your question"
+        for line in prompt.splitlines():
+            if line.startswith("Question:"):
+                question = line.replace("Question:", "", 1).strip() or question
+                break
+
+        return (
+            "Model generation endpoint is unavailable in the current local runtime. "
+            f"I can still process retrieval and safety checks, but I cannot generate a full LLM answer for: '{question}'."
+        )

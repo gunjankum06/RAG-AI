@@ -7,16 +7,27 @@ from src.core.logging import logger
 from src.vectorstore.base import SearchResult
 
 _reranker_model = None
+_reranker_unavailable = False
 
 
 def _get_reranker():
     """Lazy-load the cross-encoder model."""
     global _reranker_model  # noqa: PLW0603
-    if _reranker_model is None:
-        from sentence_transformers import CrossEncoder
+    global _reranker_unavailable  # noqa: PLW0603
 
-        _reranker_model = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
-        logger.info("Cross-encoder reranker model loaded")
+    if _reranker_unavailable:
+        return None
+
+    if _reranker_model is None:
+        try:
+            from sentence_transformers import CrossEncoder
+
+            _reranker_model = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+            logger.info("Cross-encoder reranker model loaded")
+        except Exception as exc:
+            _reranker_unavailable = True
+            logger.warning("Reranker unavailable; falling back to vector search ordering: %s", exc)
+            return None
     return _reranker_model
 
 
@@ -40,6 +51,8 @@ def rerank(
 
     top_n = top_n or settings.rerank_top_n
     model = _get_reranker()
+    if model is None:
+        return results[:top_n]
 
     pairs = [(query, r.content) for r in results]
     scores = model.predict(pairs)
