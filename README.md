@@ -87,32 +87,129 @@ ollama pull nomic-embed-text
 
 ### Option A — Local
 
-```bash
-git clone <repo-url> rag-ai && cd rag-ai
+#### 1. Clone the repository
 
+```bash
+git clone <repo-url> rag-ai
+cd rag-ai
+```
+
+#### 2. Install and start Ollama
+
+Download from [ollama.com/download](https://ollama.com/download), then pull the required models:
+
+```bash
+ollama pull llama3
+ollama pull nomic-embed-text
+```
+
+Verify Ollama is running:
+
+```bash
+curl http://localhost:11434/api/tags
+```
+
+#### 3. Create a virtual environment and install dependencies
+
+```bash
 python -m venv .venv
-# Windows
-.venv\Scripts\activate
+```
+
+Activate the virtual environment:
+
+```powershell
+# Windows (PowerShell)
+.venv\Scripts\Activate.ps1
+
+# Windows (CMD)
+.venv\Scripts\activate.bat
+```
+
+```bash
 # macOS / Linux
 source .venv/bin/activate
+```
 
+Install packages:
+
+```bash
 pip install -r requirements.txt
+pip install python-multipart   # required by FastAPI for file uploads
+```
 
-# Copy and configure environment
+#### 4. Configure environment variables
+
+```bash
+# macOS / Linux
 cp .env.example .env
-# Edit .env and set your API_KEY
 
-# Start the API server
+# Windows (PowerShell)
+Copy-Item .env.example .env
+```
+
+Open `.env` and set your `API_KEY` to a secure random string:
+
+```
+API_KEY=your-secure-random-key-here
+```
+
+#### 5. Start the API server
+
+```bash
 uvicorn src.api.server:app --host 0.0.0.0 --port 8000 --reload
+```
 
-# (Optional) Start the Streamlit UI
+The server is ready when you see:
+
+```
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000
+```
+
+Verify by visiting the health endpoint:
+
+```bash
+curl http://localhost:8000/health
+```
+
+#### 6. (Optional) Start the Streamlit UI
+
+In a separate terminal (with the virtual environment activated):
+
+```bash
 streamlit run src/ui/app.py
 ```
+
+#### Access points
+
+| Service | URL |
+|---------|-----|
+| **API** | `http://localhost:8000` |
+| **API Docs (Swagger)** | `http://localhost:8000/docs` |
+| **API Docs (ReDoc)** | `http://localhost:8000/redoc` |
+| **Streamlit UI** | `http://localhost:8501` |
+
+#### 7. Run the tests
+
+```bash
+pytest tests/ -v
+```
+
+---
 
 ### Option B — Docker Compose
 
 ```bash
+# macOS / Linux
 cp .env.example .env
+
+# Windows (PowerShell)
+Copy-Item .env.example .env
+```
+
+Edit `.env` and set your `API_KEY`, then:
+
+```bash
 docker compose up --build
 ```
 
