@@ -70,6 +70,7 @@ A **scalable, production-ready** RAG system powered by **Ollama** (local LLM) an
 | API | [FastAPI](https://fastapi.tiangolo.com/) | Async, OpenAPI docs, dependency injection |
 | Orchestration | [LangChain](https://python.langchain.com/) | Loaders, splitters, chain abstractions |
 | UI | [Streamlit](https://streamlit.io/) | Rapid chat interface prototyping |
+| Observability | OpenTelemetry + Arize Phoenix/Arize | End-to-end RAG tracing and latency breakdown |
 | Containerization | Docker + Compose | Reproducible deployments |
 | Language | Python 3.11+ | Async-native, rich ecosystem |
 
@@ -274,6 +275,54 @@ Services:
 ```bash
 docker compose down
 ```
+
+## Arize Observability (Optional)
+
+The project supports OpenTelemetry-based tracing that can be sent to Arize Phoenix (local) or Arize Cloud via OTLP.
+
+### 1. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Enable in `.env`
+
+```env
+ARIZE_ENABLED=true
+ARIZE_SERVICE_NAME=rag-ai
+ARIZE_PROJECT_NAME=rag-ai
+ARIZE_OTLP_ENDPOINT=http://127.0.0.1:6006/v1/traces
+```
+
+For Arize Cloud, set OTLP endpoint and credentials provided by Arize:
+
+```env
+ARIZE_OTLP_ENDPOINT=<your-arize-otlp-endpoint>
+ARIZE_API_KEY=<your-arize-api-key>
+ARIZE_SPACE_KEY=<your-arize-space-key>
+```
+
+### 3. Restart the API
+
+```bash
+uvicorn src.api.server:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### 4. Generate a few queries
+
+Run ingest + query flows (or use the demo scripts), then inspect traces in Arize.
+
+### What gets traced
+
+- `rag.query` and `rag.query_stream`
+- `rag.retrieve`
+- `rag.rerank`
+- `rag.build_context`
+- `rag.generate` / `rag.generate_stream`
+- `rag.guardrails.input` and `rag.guardrails.output`
+
+Each span includes useful attributes like collection name, retrieval counts, rerank usage, question length, and model name.
 
 ## How To Use The API
 
@@ -491,6 +540,12 @@ All settings via environment variables (`.env`):
 | `RATE_LIMIT_PER_MINUTE` | `60` | Requests per minute per key |
 | `LOG_LEVEL` | `INFO` | Logging verbosity |
 | `LOG_FORMAT` | `json` | `json` or `text` |
+| `ARIZE_ENABLED` | `false` | Enable OpenTelemetry tracing export |
+| `ARIZE_SERVICE_NAME` | `rag-ai` | Service name used in trace resources |
+| `ARIZE_PROJECT_NAME` | `rag-ai` | Project label for observability dashboards |
+| `ARIZE_OTLP_ENDPOINT` | `http://127.0.0.1:6006/v1/traces` | OTLP traces endpoint (Phoenix/Arize) |
+| `ARIZE_API_KEY` | `` | Arize API key for hosted export |
+| `ARIZE_SPACE_KEY` | `` | Arize space key for hosted export |
 | `EMBEDDING_BATCH_SIZE` | `64` | Batch size for embedding calls |
 | `OLLAMA_TIMEOUT_SECONDS` | `300` | Request timeout for Ollama calls |
 | `OLLAMA_MAX_RETRIES` | `3` | Retry attempts for failed Ollama calls |

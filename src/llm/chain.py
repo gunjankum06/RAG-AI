@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 
 from src.core.config import settings
 from src.core.logging import logger
+from src.core.observability import start_span
 from src.guardrails.engine import GuardrailsEngine, GuardrailsReport
 from src.llm.ollama import OllamaLLM
 from src.retrieval.context import build_context
@@ -68,52 +69,73 @@ class RAGChain:
     ) -> RAGResponse:
         """Run a full RAG query and return the answer with sources."""
         use_rerank = use_rerank if use_rerank is not None else settings.rerank_enabled
+        effective_top_k = top_k or settings.top_k
 
-        # ── Guardrails: input validation ──────────────────────────────
-        if self._guardrails.enabled:
-            input_report = self._guardrails.check(query=question)
-            if input_report.blocked:
-                logger.warning("Query blocked by guardrails: %s", input_report.block_reason)
-                return RAGResponse(
-                    answer="I'm unable to process this query due to safety guidelines.",
-                    guardrails=input_report,
+        with start_span(
+            "rag.query",
+            {
+                "rag.collection": collection,
+                "rag.top_k": effective_top_k,
+                "rag.rerank_enabled": use_rerank,
+                "rag.question_length": len(question),
+            },
+        ):
+
+            # ── Guardrails: input validation ──────────────────────────────
+            if self._guardrails.enabled:
+                with start_span("rag.guardrails.input"):
+                    input_report = self._guardrails.check(query=question)
+                if input_report.blocked:
+                    logger.warning("Query blocked by guardrails: %s", input_report.block_reason)
+                    return RAGResponse(
+                        answer="I'm unable to process this query due to safety guidelines.",
+                        guardrails=input_report,
+                    )
+
+            # 1. Retrieve
+            # Fetch more candidates if we'll rerank
+            fetch_k = effective_top_k * 3 if use_rerank else effective_top_k
+            with start_span("rag.retrieve", {"rag.fetch_k": fetch_k}):
+                results = await self._retriever.retrieve(
+                    query=question,
+                    collection=collection,
+                    top_k=fetch_k,
                 )
 
-        # 1. Retrieve
-        # Fetch more candidates if we'll rerank
-        fetch_k = (top_k or settings.top_k) * 3 if use_rerank else (top_k or settings.top_k)
-        results = await self._retriever.retrieve(
-            query=question, collection=collection, top_k=fetch_k
-        )
+            # 2. Rerank
+            if use_rerank and results:
+                with start_span("rag.rerank", {"rag.candidate_count": len(results)}):
+                    results = rerank(question, results)
 
-        # 2. Rerank
-        if use_rerank and results:
-            results = rerank(question, results)
+            # 3. Build context
+            with start_span("rag.build_context", {"rag.source_count": len(results)}):
+                context = build_context(results)
 
-        # 3. Build context
-        context = build_context(results)
-
-        # 4. Format prompt
-        history_str = self._format_history(chat_history)
-        prompt = RAG_SYSTEM_PROMPT.format(
-            context=context,
-            chat_history=history_str,
-            question=question,
-        )
-
-        # 5. Generate
-        logger.info("Generating answer for: %s", question[:80])
-        answer = await self._llm.generate(prompt)
-
-        # ── Guardrails: output validation ─────────────────────────────
-        guardrails_report = None
-        if self._guardrails.enabled:
-            guardrails_report = self._guardrails.check(
-                query=question, response=answer, context=context,
+            # 4. Format prompt
+            history_str = self._format_history(chat_history)
+            prompt = RAG_SYSTEM_PROMPT.format(
+                context=context,
+                chat_history=history_str,
+                question=question,
             )
-            answer = self._guardrails.redact_pii(answer)
 
-        return RAGResponse(answer=answer, sources=results, guardrails=guardrails_report)
+            # 5. Generate
+            logger.info("Generating answer for: %s", question[:80])
+            with start_span("rag.generate", {"llm.model": settings.llm_model}):
+                answer = await self._llm.generate(prompt)
+
+            # ── Guardrails: output validation ─────────────────────────────
+            guardrails_report = None
+            if self._guardrails.enabled:
+                with start_span("rag.guardrails.output"):
+                    guardrails_report = self._guardrails.check(
+                        query=question,
+                        response=answer,
+                        context=context,
+                    )
+                    answer = self._guardrails.redact_pii(answer)
+
+            return RAGResponse(answer=answer, sources=results, guardrails=guardrails_report)
 
     async def query_stream(
         self,
@@ -125,34 +147,51 @@ class RAGChain:
     ) -> AsyncIterator[str]:
         """Stream a RAG answer token by token."""
         use_rerank = use_rerank if use_rerank is not None else settings.rerank_enabled
+        effective_top_k = top_k or settings.top_k
 
-        # ── Guardrails: input validation (blocks before streaming) ────
-        if self._guardrails.enabled:
-            input_report = self._guardrails.check(query=question)
-            if input_report.blocked:
-                logger.warning("Streaming query blocked by guardrails: %s", input_report.block_reason)
-                yield "I'm unable to process this query due to safety guidelines."
-                return
+        with start_span(
+            "rag.query_stream",
+            {
+                "rag.collection": collection,
+                "rag.top_k": effective_top_k,
+                "rag.rerank_enabled": use_rerank,
+                "rag.question_length": len(question),
+            },
+        ):
+            # ── Guardrails: input validation (blocks before streaming) ────
+            if self._guardrails.enabled:
+                with start_span("rag.guardrails.input"):
+                    input_report = self._guardrails.check(query=question)
+                if input_report.blocked:
+                    logger.warning("Streaming query blocked by guardrails: %s", input_report.block_reason)
+                    yield "I'm unable to process this query due to safety guidelines."
+                    return
 
-        fetch_k = (top_k or settings.top_k) * 3 if use_rerank else (top_k or settings.top_k)
-        results = await self._retriever.retrieve(
-            query=question, collection=collection, top_k=fetch_k
-        )
+            fetch_k = effective_top_k * 3 if use_rerank else effective_top_k
+            with start_span("rag.retrieve", {"rag.fetch_k": fetch_k}):
+                results = await self._retriever.retrieve(
+                    query=question,
+                    collection=collection,
+                    top_k=fetch_k,
+                )
 
-        if use_rerank and results:
-            results = rerank(question, results)
+            if use_rerank and results:
+                with start_span("rag.rerank", {"rag.candidate_count": len(results)}):
+                    results = rerank(question, results)
 
-        context = build_context(results)
-        history_str = self._format_history(chat_history)
-        prompt = RAG_SYSTEM_PROMPT.format(
-            context=context,
-            chat_history=history_str,
-            question=question,
-        )
+            with start_span("rag.build_context", {"rag.source_count": len(results)}):
+                context = build_context(results)
+            history_str = self._format_history(chat_history)
+            prompt = RAG_SYSTEM_PROMPT.format(
+                context=context,
+                chat_history=history_str,
+                question=question,
+            )
 
-        logger.info("Streaming answer for: %s", question[:80])
-        async for token in self._llm.generate_stream(prompt):
-            yield token
+            logger.info("Streaming answer for: %s", question[:80])
+            with start_span("rag.generate_stream", {"llm.model": settings.llm_model}):
+                async for token in self._llm.generate_stream(prompt):
+                    yield token
 
     @staticmethod
     def _format_history(chat_history: list[ChatMessage] | None) -> str:

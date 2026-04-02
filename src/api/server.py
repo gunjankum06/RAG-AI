@@ -16,11 +16,14 @@ from src.api.schemas import HealthResponse
 from src.core.config import settings
 from src.core.exceptions import CircuitOpenError, RAGError
 from src.core.logging import logger
+from src.core.observability import setup_observability, shutdown_observability
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup validation and graceful shutdown."""
+    setup_observability()
+
     logger.info(
         "RAG AI starting (env=%s, vector_store=%s, llm=%s)",
         settings.environment,
@@ -54,6 +57,7 @@ async def lifespan(app: FastAPI):
     # Graceful shutdown: release all resources
     logger.info("RAG AI shutting down — releasing resources")
     await registry.shutdown()
+    shutdown_observability()
     logger.info("RAG AI shutdown complete")
 
 

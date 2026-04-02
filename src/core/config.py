@@ -48,6 +48,14 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: Literal["json", "text"] = "json"
 
+    # ── Observability (Arize / OTLP) ─────────────────────────────────
+    arize_enabled: bool = False
+    arize_service_name: str = "rag-ai"
+    arize_project_name: str = "rag-ai"
+    arize_otlp_endpoint: str = "http://127.0.0.1:6006/v1/traces"
+    arize_api_key: str = ""
+    arize_space_key: str = ""
+
     # ── Guardrails ──────────────────────────────────────────────────
     guardrails_enabled: bool = True
     guardrails_block_on_failure: bool = True
