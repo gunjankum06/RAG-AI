@@ -1,16 +1,54 @@
 [project]
 name = "rag-ai"
-version = "1.0.0"
+version = "2.0.0"
 description = "Production-grade RAG system with Ollama and ChromaDB"
 requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "unit: Fast isolated unit tests",
+    "integration: Tests requiring external services (Ollama, etc.)",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.ruff]
 target-version = "py311"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W"]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "W",    # pycodestyle warnings
+    "S",    # bandit (security)
+    "B",    # bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "RUF",  # ruff-specific
+    "PLW",  # pylint warnings
+]
+ignore = [
+    "S101",  # assert OK in tests
+    "S311",  # random OK for jitter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["src/ui/*"]
+
+[tool.coverage.report]
+fail_under = 60
+show_missing = true

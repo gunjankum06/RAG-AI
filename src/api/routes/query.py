@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 
 from src.api.dependencies import get_rag_chain, rate_limiter
 from src.api.schemas import QueryRequest, QueryResponse, SourceSchema
+from src.core.config import settings
 from src.core.logging import logger
 from src.llm.chain import ChatMessage
 
@@ -46,6 +47,7 @@ async def query_documents(
             content=s.content[:500],
             filename=s.metadata.get("filename"),
             score=s.score,
+            chunk_index=s.metadata.get("chunk_index"),
         )
         for s in result.sources
     ]
@@ -55,7 +57,7 @@ async def query_documents(
         body.collection,
         len(sources),
     )
-    return QueryResponse(answer=result.answer, sources=sources)
+    return QueryResponse(answer=result.answer, sources=sources, model=settings.llm_model)
 
 
 async def _stream_response(rag_chain, body: QueryRequest, chat_history: list[ChatMessage]):

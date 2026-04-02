@@ -1,4 +1,4 @@
-"""Ollama embedding client with batched processing."""
+"""Ollama embedding client with batched processing, retry, and circuit breaker."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import httpx
 from src.core.config import settings
 from src.core.exceptions import EmbeddingError
 from src.core.logging import logger
+from src.core.resilience import async_retry
 
 
 class OllamaEmbeddings:
@@ -21,7 +22,10 @@ class OllamaEmbeddings:
         self.base_url = (base_url or settings.ollama_base_url).rstrip("/")
         self.model = model or settings.embedding_model
         self.batch_size = batch_size or settings.embedding_batch_size
-        self._client = httpx.AsyncClient(timeout=120.0)
+        self._client = httpx.AsyncClient(
+            timeout=httpx.Timeout(settings.ollama_timeout_seconds, connect=10.0),
+            limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+        )
 
     async def embed_texts(self, texts: list[str]) -> list[list[float]]:
         """Embed a list of texts in batches."""
@@ -45,8 +49,9 @@ class OllamaEmbeddings:
         results = await self._embed_batch([text])
         return results[0]
 
+    @async_retry(max_retries=settings.ollama_max_retries, base_delay=1.0, exceptions=(EmbeddingError,))
     async def _embed_batch(self, texts: list[str]) -> list[list[float]]:
-        """Call Ollama embedding API for a batch of texts."""
+        """Call Ollama embedding API for a batch of texts (with retry)."""
         results: list[list[float]] = []
         for text in texts:
             try:

@@ -188,7 +188,13 @@ All settings via environment variables (`.env`):
 | `API_KEY` | *(required)* | API authentication key |
 | `RATE_LIMIT_PER_MINUTE` | `60` | Requests per minute per key |
 | `LOG_LEVEL` | `INFO` | Logging verbosity |
+| `LOG_FORMAT` | `json` | `json` or `text` |
 | `EMBEDDING_BATCH_SIZE` | `64` | Batch size for embedding calls |
+| `OLLAMA_TIMEOUT_SECONDS` | `300` | Request timeout for Ollama calls |
+| `OLLAMA_MAX_RETRIES` | `3` | Retry attempts for failed Ollama calls |
+| `MAX_UPLOAD_SIZE_MB` | `50` | Maximum file upload size |
+| `CORS_ORIGINS` | `["*"]` | Allowed CORS origins |
+| `ENVIRONMENT` | `development` | `development`, `staging`, or `production` |
 
 ## Scaling Guide
 
@@ -209,6 +215,7 @@ All settings via environment variables (`.env`):
 | Version | Date | Author | Change Description |
 |---------|------|--------|--------------------|
 | 1.0.0 | 2026-04-02 | Engineering Team | Initial release — full project scaffold with FastAPI server, ingestion pipeline (PDF/TXT/MD/DOCX), ChromaDB & FAISS vector stores, cross-encoder reranking, streaming LLM via Ollama, Streamlit chat UI, Docker Compose deployment, API key auth, rate limiting, embedding cache, and test suite |
+| 2.0.0 | 2026-04-02 | Engineering Team | Principal Engineer upgrade — request ID tracing & timing middleware, structured JSON logging with correlation IDs, retry with exponential backoff + jitter, circuit breaker pattern, HMAC timing-safe auth, file size limits, input sanitization, config validators, multi-stage Docker build with non-root user, Docker healthchecks, GitHub Actions CI/CD, Makefile, service registry with graceful shutdown, comprehensive test suite with conftest fixtures, Bandit/Bugbear linting |
 
 ## License
 

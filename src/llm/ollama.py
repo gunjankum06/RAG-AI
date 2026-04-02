@@ -1,7 +1,8 @@
-"""Ollama LLM client with streaming support."""
+"""Ollama LLM client with streaming, retry, and connection pooling."""
 
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncIterator
 
 import httpx
@@ -9,6 +10,7 @@ import httpx
 from src.core.config import settings
 from src.core.exceptions import LLMError
 from src.core.logging import logger
+from src.core.resilience import async_retry
 
 
 class OllamaLLM:
@@ -21,10 +23,14 @@ class OllamaLLM:
     ):
         self.base_url = (base_url or settings.ollama_base_url).rstrip("/")
         self.model = model or settings.llm_model
-        self._client = httpx.AsyncClient(timeout=300.0)
+        self._client = httpx.AsyncClient(
+            timeout=httpx.Timeout(settings.ollama_timeout_seconds, connect=10.0),
+            limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+        )
 
+    @async_retry(max_retries=settings.ollama_max_retries, base_delay=2.0, exceptions=(LLMError,))
     async def generate(self, prompt: str) -> str:
-        """Generate a complete response (non-streaming)."""
+        """Generate a complete response (non-streaming, with retry)."""
         try:
             response = await self._client.post(
                 f"{self.base_url}/api/generate",
@@ -44,14 +50,12 @@ class OllamaLLM:
                 "POST",
                 f"{self.base_url}/api/generate",
                 json={"model": self.model, "prompt": prompt, "stream": True},
-                timeout=300.0,
+                timeout=settings.ollama_timeout_seconds,
             ) as response:
                 response.raise_for_status()
                 async for line in response.aiter_lines():
                     if not line:
                         continue
-                    import json
-
                     data = json.loads(line)
                     token = data.get("response", "")
                     if token:
@@ -64,7 +68,10 @@ class OllamaLLM:
     async def health_check(self) -> bool:
         """Check if Ollama is reachable."""
         try:
-            response = await self._client.get(f"{self.base_url}/api/tags")
+            response = await self._client.get(
+                f"{self.base_url}/api/tags",
+                timeout=5.0,
+            )
             return response.status_code == 200
         except Exception:
             return False

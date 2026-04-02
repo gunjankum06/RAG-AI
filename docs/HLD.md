@@ -1,6 +1,6 @@
 # High-Level Design (HLD) — RAG AI System
 
-> **Document Version:** 1.0.0  
+> **Document Version:** 2.0.0  
 > **Author:** Engineering Team  
 > **Last Updated:** 2026-04-02  
 > **Status:** Approved  
@@ -1003,6 +1003,7 @@ Full Capability (all systems healthy)
 | Version | Date | Author | Change Description |
 |---------|------|--------|--------------------|
 | 1.0.0 | 2026-04-02 | Engineering Team | Initial HLD — full system design covering architecture, components, data flows, security, scalability, deployment, and technology decisions |
+| 2.0.0 | 2026-04-02 | Engineering Team | Principal Engineer upgrade — added resilience primitives (retry with exponential backoff + jitter, circuit breaker), request ID middleware with correlation ID propagation, structured JSON logging, HMAC timing-safe auth, config validation with Pydantic field validators, service registry pattern with graceful shutdown, multi-stage Dockerfile with non-root user, Docker healthchecks, GitHub Actions CI/CD pipeline, Makefile automation, comprehensive test fixtures, Bandit security linting |
 
 ---
 
