@@ -334,6 +334,34 @@ Windows note: GNU `make` may not be installed by default. If unavailable, run Py
 
 Use this when you want to verify end-to-end behavior quickly.
 
+### Run the prepared scripts (recommended)
+
+PowerShell:
+
+```powershell
+$env:API_KEY="replace-with-a-strong-random-secret"
+.\scripts\demo.ps1
+```
+
+PowerShell with custom URL/collection:
+
+```powershell
+.\scripts\demo.ps1 -ApiUrl "http://127.0.0.1:8000" -Collection "demo" -ApiKey "replace-with-a-strong-random-secret"
+```
+
+Bash:
+
+```bash
+API_KEY="replace-with-a-strong-random-secret" bash scripts/demo.sh
+```
+
+The scripts will:
+
+- create `data/demo.txt`
+- call `/health`
+- ingest the file into the selected collection
+- run a sample query and print the response
+
 ### PowerShell demo
 
 ```powershell
