@@ -39,10 +39,25 @@ class SourceSchema(BaseModel):
     chunk_index: int | None = None
 
 
+class GuardrailsCheckSchema(BaseModel):
+    status: str
+    validator: str
+    message: str = ""
+
+
+class GuardrailsSchema(BaseModel):
+    passed: bool
+    blocked: bool = False
+    block_reason: str = ""
+    input_checks: list[GuardrailsCheckSchema] = Field(default_factory=list)
+    output_checks: list[GuardrailsCheckSchema] = Field(default_factory=list)
+
+
 class QueryResponse(BaseModel):
     answer: str
     sources: list[SourceSchema] = Field(default_factory=list)
     model: str | None = None
+    guardrails: GuardrailsSchema | None = None
 
 
 # ── Ingestion ─────────────────────────────────────────────────────────
@@ -72,7 +87,7 @@ class HealthResponse(BaseModel):
     status: str
     ollama: bool
     vector_store: bool
-    version: str = "2.0.0"
+    version: str = "2.1.0"
 
 
 # ── Error ─────────────────────────────────────────────────────────────

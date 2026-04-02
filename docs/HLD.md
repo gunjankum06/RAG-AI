@@ -1,6 +1,6 @@
 # High-Level Design (HLD) — RAG AI System
 
-> **Document Version:** 2.0.0  
+> **Document Version:** 2.1.0  
 > **Author:** Engineering Team  
 > **Last Updated:** 2026-04-02  
 > **Status:** Approved  
@@ -22,8 +22,9 @@
 11. [Failure Handling & Resilience](#11-failure-handling--resilience)
 12. [Technology Decisions & Rationale](#12-technology-decisions--rationale)
 13. [Constraints & Assumptions](#13-constraints--assumptions)
-14. [Future Roadmap](#14-future-roadmap)
-15. [Changelog](#15-changelog)
+14. [Guardrails AI — Input/Output Safety](#14-guardrails-ai--inputoutput-safety)
+15. [Future Roadmap](#15-future-roadmap)
+16. [Changelog](#16-changelog)
 
 ---
 
@@ -981,7 +982,80 @@ Full Capability (all systems healthy)
 
 ---
 
-## 14. Future Roadmap
+## 14. Guardrails AI — Input/Output Safety
+
+### 14.1 Overview
+
+The system integrates a **Guardrails AI** module that validates both user input (pre-retrieval) and LLM output (post-generation). Each validator can be independently enabled/disabled via environment variables.
+
+```
+User Query ──► [Input Guardrails] ──► Retrieve ──► Rerank ──► LLM ──► [Output Guardrails] ──► Response
+                    │                                                        │
+              Prompt Injection                                       Context Grounding
+              Topic Relevance                                        PII Detection
+                    │                                                Response Quality
+                    ▼                                                        │
+              Block (if fail)                                         Warn / Redact
+```
+
+### 14.2 Input Validators
+
+| Validator | Purpose | Failure Action |
+|-----------|---------|----------------|
+| **Prompt Injection Detector** | Detects instruction-override, jailbreak, role-play patterns via 20+ regex rules | Block query |
+| **Topic Relevance** | Rejects queries containing code-execution patterns (`os.system`, `exec()`, SQL injection) | Block query |
+
+### 14.3 Output Validators
+
+| Validator | Purpose | Failure Action |
+|-----------|---------|----------------|
+| **Context Grounding** | Computes tri-gram overlap between response and retrieved context; flags hallucination below threshold | Warn in report |
+| **PII Detector** | Regex-based scan for email, phone, SSN, credit card, IP address | Warn / Redact |
+| **Response Quality** | Checks for empty, too-short, too-long, or refusal responses | Warn in report |
+
+### 14.4 Configuration
+
+All guardrails settings are toggled via environment variables:
+
+```bash
+GUARDRAILS_ENABLED=true
+GUARDRAILS_BLOCK_ON_FAILURE=true     # Block on input failures
+GUARDRAILS_CHECK_INJECTION=true
+GUARDRAILS_CHECK_TOPIC=true
+GUARDRAILS_CHECK_GROUNDING=true
+GUARDRAILS_CHECK_PII=true
+GUARDRAILS_CHECK_QUALITY=true
+GUARDRAILS_PII_REDACT=false          # Replace PII with [REDACTED]
+GUARDRAILS_GROUNDING_THRESHOLD=0.3   # 0.0–1.0
+```
+
+### 14.5 API Response
+
+The `/query` response includes a `guardrails` field with validation results:
+
+```json
+{
+  "answer": "...",
+  "sources": [...],
+  "guardrails": {
+    "passed": true,
+    "blocked": false,
+    "block_reason": "",
+    "input_checks": [
+      {"status": "pass", "validator": "prompt_injection", "message": "No prompt injection detected"}
+    ],
+    "output_checks": [
+      {"status": "pass", "validator": "context_grounding", "message": "Response is grounded (score: 0.65)", "grounding_score": 0.65},
+      {"status": "pass", "validator": "pii_detection", "message": "No PII detected"},
+      {"status": "pass", "validator": "response_quality", "message": "Response quality checks passed"}
+    ]
+  }
+}
+```
+
+---
+
+## 15. Future Roadmap
 
 | Phase | Feature | Effort | Priority |
 |-------|---------|--------|----------|
@@ -998,10 +1072,11 @@ Full Capability (all systems healthy)
 
 ---
 
-## 15. Changelog
+## 16. Changelog
 
 | Version | Date | Author | Change Description |
 |---------|------|--------|--------------------|
+| 2.1.0 | 2026-04-02 | Engineering Team | Guardrails AI integration — prompt injection detection, topic relevance filtering, context-grounding hallucination check, PII detection & optional redaction, response quality validation, configurable per-validator toggles, guardrails report in query API response, comprehensive test suite (30+ tests) |
 | 1.0.0 | 2026-04-02 | Engineering Team | Initial HLD — full system design covering architecture, components, data flows, security, scalability, deployment, and technology decisions |
 | 2.0.0 | 2026-04-02 | Engineering Team | Principal Engineer upgrade — added resilience primitives (retry with exponential backoff + jitter, circuit breaker), request ID middleware with correlation ID propagation, structured JSON logging, HMAC timing-safe auth, config validation with Pydantic field validators, service registry pattern with graceful shutdown, multi-stage Dockerfile with non-root user, Docker healthchecks, GitHub Actions CI/CD pipeline, Makefile automation, comprehensive test fixtures, Bandit security linting |
 

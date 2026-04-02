@@ -48,5 +48,9 @@ class ConfigurationError(RAGError):
 class CircuitOpenError(RAGError):
     """Raised when a circuit breaker is open and rejecting calls."""
 
+
+class GuardrailsError(RAGError):
+    """Raised when a guardrails check blocks the request."""
+
     def __init__(self, service: str = "") -> None:
         super().__init__(f"Circuit breaker open for {service}", retriable=False)

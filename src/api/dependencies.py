@@ -13,6 +13,7 @@ from src.core.config import settings
 from src.core.logging import logger
 from src.core.resilience import CircuitBreaker
 from src.embeddings.ollama import OllamaEmbeddings
+from src.guardrails.engine import GuardrailsEngine
 from src.llm.chain import RAGChain
 from src.llm.ollama import OllamaLLM
 from src.retrieval.retriever import Retriever
@@ -75,6 +76,7 @@ class _ServiceRegistry:
         self._retriever: Retriever | None = None
         self._llm: OllamaLLM | None = None
         self._rag_chain: RAGChain | None = None
+        self._guardrails: GuardrailsEngine | None = None
 
     @property
     def embeddings(self) -> OllamaEmbeddings:
@@ -108,9 +110,19 @@ class _ServiceRegistry:
         return self._llm
 
     @property
+    def guardrails(self) -> GuardrailsEngine:
+        if self._guardrails is None:
+            self._guardrails = GuardrailsEngine()
+        return self._guardrails
+
+    @property
     def rag_chain(self) -> RAGChain:
         if self._rag_chain is None:
-            self._rag_chain = RAGChain(retriever=self.retriever, llm=self.llm)
+            self._rag_chain = RAGChain(
+                retriever=self.retriever,
+                llm=self.llm,
+                guardrails=self.guardrails,
+            )
         return self._rag_chain
 
     async def shutdown(self) -> None:

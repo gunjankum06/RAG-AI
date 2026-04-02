@@ -48,6 +48,17 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: Literal["json", "text"] = "json"
 
+    # ── Guardrails ──────────────────────────────────────────────────
+    guardrails_enabled: bool = True
+    guardrails_block_on_failure: bool = True
+    guardrails_check_injection: bool = True
+    guardrails_check_topic: bool = True
+    guardrails_check_grounding: bool = True
+    guardrails_check_pii: bool = True
+    guardrails_check_quality: bool = True
+    guardrails_pii_redact: bool = False
+    guardrails_grounding_threshold: float = Field(default=0.3, ge=0.0, le=1.0)
+
     # ── Environment ───────────────────────────────────────────────────
     environment: Literal["development", "staging", "production"] = "development"
 
