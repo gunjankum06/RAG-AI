@@ -52,5 +52,9 @@ class CircuitOpenError(RAGError):
 class GuardrailsError(RAGError):
     """Raised when a guardrails check blocks the request."""
 
-    def __init__(self, service: str = "") -> None:
-        super().__init__(f"Circuit breaker open for {service}", retriable=False)
+
+class SensitiveDataError(RAGError):
+    """Raised when sensitive data (PII/PHI/PCI/secrets) is detected."""
+
+    def __init__(self, message: str = "Sensitive data policy violation") -> None:
+        super().__init__(message, retriable=False)

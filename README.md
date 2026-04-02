@@ -50,6 +50,8 @@ A **scalable, production-ready** RAG system powered by **Ollama** (local LLM) an
 | **Security** | API key auth, rate limiting, CORS, input sanitization |
 | **Quality** | Cross-encoder reranking, hybrid search, deduplication |
 | **Safety** | Guardrails AI — prompt injection, hallucination, PII detection |
+| **Data Protection** | DLP engine — PII/PHI/PCI/secrets/credentials scanning & redaction |
+| **OWASP** | Agent threat protection — exfiltration, indirect injection, excessive agency |
 | **Ops** | Structured JSON logging, Docker-ready |
 | **Caching** | LRU cache for embeddings, query result caching |
 | **Flexibility** | Pluggable vector store (Chroma / FAISS), swappable models |
@@ -64,6 +66,7 @@ A **scalable, production-ready** RAG system powered by **Ollama** (local LLM) an
 | Alt Vector DB | [FAISS](https://github.com/facebookresearch/faiss) | Blazing-fast similarity search at scale |
 | Reranker | `cross-encoder/ms-marco-MiniLM-L-6-v2` | Precision reranking of retrieved chunks |
 | Guardrails | [Guardrails AI](https://www.guardrailsai.com/) | Input/output safety — injection, hallucination, PII |
+| DLP | Custom DLP Engine | OWASP-aligned PII/PHI/PCI/secrets/credentials protection |
 | API | [FastAPI](https://fastapi.tiangolo.com/) | Async, OpenAPI docs, dependency injection |
 | Orchestration | [LangChain](https://python.langchain.com/) | Loaders, splitters, chain abstractions |
 | UI | [Streamlit](https://streamlit.io/) | Rapid chat interface prototyping |
@@ -156,7 +159,11 @@ rag-ai/
 │   │   └── chain.py             # RAG prompt + chain + guardrails
 │   ├── guardrails/
 │   │   ├── validators.py        # Injection, grounding, PII, quality validators
-│   │   └── engine.py            # GuardrailsEngine orchestration
+│   │   ├── engine.py            # GuardrailsEngine orchestration
+│   │   ├── owasp_validators.py  # OWASP agent threat validators
+│   │   ├── data_classifier.py   # PII/PHI/PCI/secrets classifier (30+ patterns)
+│   │   ├── dlp.py               # Data Loss Prevention engine
+│   │   └── audit.py             # Security audit logger
 │   └── ui/
 │       └── app.py               # Streamlit chat interface
 ├── data/                        # Drop documents here
@@ -209,6 +216,14 @@ All settings via environment variables (`.env`):
 | `GUARDRAILS_CHECK_QUALITY` | `true` | Enable response quality checks |
 | `GUARDRAILS_PII_REDACT` | `false` | Redact detected PII in responses |
 | `GUARDRAILS_GROUNDING_THRESHOLD` | `0.3` | Min grounding score (0.0–1.0) |
+| `OWASP_CHECK_EXFILTRATION` | `true` | Detect data exfiltration attempts |
+| `OWASP_CHECK_EXCESSIVE_AGENCY` | `true` | Block excessive agent actions |
+| `OWASP_CHECK_INDIRECT_INJECTION` | `true` | Detect indirect prompt injection in context |
+| `OWASP_CHECK_SYSTEM_PROMPT_LEAK` | `true` | Block system prompt extraction |
+| `DLP_ENABLED` | `true` | Enable Data Loss Prevention engine |
+| `DLP_SCAN_INGESTION` | `true` | Scan documents before storing |
+| `DLP_BLOCK_SEVERITY` | `critical` | Block if severity ≥ threshold |
+| `DLP_REDACT_SEVERITY` | `high` | Redact if severity ≥ threshold |
 
 ## Scaling Guide
 
@@ -231,6 +246,7 @@ All settings via environment variables (`.env`):
 | 1.0.0 | 2026-04-02 | Engineering Team | Initial release — full project scaffold with FastAPI server, ingestion pipeline (PDF/TXT/MD/DOCX), ChromaDB & FAISS vector stores, cross-encoder reranking, streaming LLM via Ollama, Streamlit chat UI, Docker Compose deployment, API key auth, rate limiting, embedding cache, and test suite |
 | 2.0.0 | 2026-04-02 | Engineering Team | Principal Engineer upgrade — request ID tracing & timing middleware, structured JSON logging with correlation IDs, retry with exponential backoff + jitter, circuit breaker pattern, HMAC timing-safe auth, file size limits, input sanitization, config validators, multi-stage Docker build with non-root user, Docker healthchecks, GitHub Actions CI/CD, Makefile, service registry with graceful shutdown, comprehensive test suite with conftest fixtures, Bandit/Bugbear linting |
 | 2.1.0 | 2026-04-02 | Engineering Team | Guardrails AI integration — prompt injection detection, topic relevance filtering, context-grounding hallucination check, PII detection & optional redaction, response quality validation, configurable per-validator toggles, guardrails report in API response, comprehensive test suite |
+| 2.2.0 | 2026-04-02 | Engineering Team | OWASP Agent Threat Protection — sensitive data classifier (PII/PHI/PCI/credentials/secrets, 30+ patterns), DLP engine with block/redact/audit policies, security audit logger, OWASP validators (data exfiltration, indirect injection, excessive agency, system prompt leak), ingestion-time DLP scanning, 93 total guardrails+OWASP tests |
 
 ## License
 

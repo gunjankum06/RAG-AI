@@ -83,6 +83,8 @@ async def query_documents(
                 )
                 for r in rpt.output_results
             ],
+            dlp_action=rpt.dlp_action,
+            dlp_detail=rpt.dlp_detail,
         )
 
     return QueryResponse(

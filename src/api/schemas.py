@@ -51,6 +51,8 @@ class GuardrailsSchema(BaseModel):
     block_reason: str = ""
     input_checks: list[GuardrailsCheckSchema] = Field(default_factory=list)
     output_checks: list[GuardrailsCheckSchema] = Field(default_factory=list)
+    dlp_action: str = ""
+    dlp_detail: str = ""
 
 
 class QueryResponse(BaseModel):
@@ -69,6 +71,8 @@ class IngestResponse(BaseModel):
     documents_loaded: int = 0
     chunks_created: int = 0
     chunks_stored: int = 0
+    dlp_blocked: int = 0
+    dlp_redacted: int = 0
     message: str = ""
 
 
@@ -87,7 +91,7 @@ class HealthResponse(BaseModel):
     status: str
     ollama: bool
     vector_store: bool
-    version: str = "2.1.0"
+    version: str = "2.2.0"
 
 
 # ── Error ─────────────────────────────────────────────────────────────

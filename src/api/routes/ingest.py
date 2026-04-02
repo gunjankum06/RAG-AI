@@ -78,6 +78,8 @@ async def ingest_documents(
             documents_loaded=summary["documents_loaded"],
             chunks_created=summary["chunks_created"],
             chunks_stored=summary["chunks_stored"],
+            dlp_blocked=summary.get("dlp_blocked", 0),
+            dlp_redacted=summary.get("dlp_redacted", 0),
             message=f"Successfully ingested {len(saved_paths)} file(s)",
         )
 

@@ -59,6 +59,18 @@ class Settings(BaseSettings):
     guardrails_pii_redact: bool = False
     guardrails_grounding_threshold: float = Field(default=0.3, ge=0.0, le=1.0)
 
+    # ── OWASP Agent Threat Protection ─────────────────────────────────
+    owasp_check_exfiltration: bool = True
+    owasp_check_excessive_agency: bool = True
+    owasp_check_indirect_injection: bool = True
+    owasp_check_system_prompt_leak: bool = True
+
+    # ── DLP (Data Loss Prevention) ────────────────────────────────────
+    dlp_enabled: bool = True
+    dlp_scan_ingestion: bool = True
+    dlp_block_severity: Literal["low", "medium", "high", "critical"] = "critical"
+    dlp_redact_severity: Literal["low", "medium", "high", "critical"] = "high"
+
     # ── Environment ───────────────────────────────────────────────────
     environment: Literal["development", "staging", "production"] = "development"
 

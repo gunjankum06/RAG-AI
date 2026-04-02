@@ -1,6 +1,6 @@
 # High-Level Design (HLD) — RAG AI System
 
-> **Document Version:** 2.1.0  
+> **Document Version:** 2.2.0  
 > **Author:** Engineering Team  
 > **Last Updated:** 2026-04-02  
 > **Status:** Approved  
@@ -1055,6 +1055,65 @@ The `/query` response includes a `guardrails` field with validation results:
 
 ---
 
+## 14.6 OWASP Agent Threat Protection (v2.2.0)
+
+### 14.6.1 Sensitive Data Classifier
+
+Multi-category scanner (`src/guardrails/data_classifier.py`) with 30+ regex patterns across 5 data categories:
+
+| Category | Examples | Severity |
+|----------|----------|----------|
+| **PII** | Email, phone, SSN, driver's license, passport, DOB, physical address, IP | Medium–Critical |
+| **PHI** (HIPAA) | Medical record number, health plan ID, ICD-10 codes, medications, lab results | Medium–Critical |
+| **PCI-DSS** | Credit card, CVV, bank account, routing number, IBAN | High–Critical |
+| **Credentials** | Passwords, Bearer tokens, Basic auth, JWT tokens | Critical |
+| **Secrets** | AWS keys, GitHub PATs, private keys, connection strings, API keys, Slack webhooks | High–Critical |
+
+### 14.6.2 DLP Engine
+
+The Data Loss Prevention engine (`src/guardrails/dlp.py`) applies threshold-based policies:
+
+```
+Sensitive Data → Classify → [severity ≥ BLOCK_THRESHOLD] → BLOCK (reject entirely)
+                          → [severity ≥ REDACT_THRESHOLD] → REDACT (replace with placeholders)
+                          → [below thresholds]            → AUDIT (log and allow)
+```
+
+DLP runs at three points:
+1. **Query input** — blocks queries containing leaked credentials/secrets
+2. **LLM response** — redacts sensitive data before returning to user
+3. **Document ingestion** — scans chunks before they enter the vector store
+
+### 14.6.3 OWASP Agent Threat Validators
+
+| Validator | OWASP Threat | What It Detects |
+|-----------|-------------|-----------------|
+| `DataExfiltrationDetector` | LLM06 — Data Exfiltration | URL-based exfil, encoding tricks, markdown/HTML tracking pixels, webhook callbacks |
+| `IndirectInjectionDetector` | Indirect Prompt Injection | Hidden instructions in documents, system tags, zero-width chars, role redefinition |
+| `ExcessiveAgencyDetector` | Excessive Agency | Demands to execute commands, access files, connect to DBs, make autonomous decisions |
+| `SystemPromptLeakDetector` | Information Disclosure | Attempts to extract system prompts, reveal instructions, dump configuration |
+
+### 14.6.4 Security Audit Logger
+
+Dedicated audit sink (`src/guardrails/audit.py`) writes structured JSON to stderr — separate from application logs:
+
+```json
+{
+  "timestamp": "2026-04-02T12:00:00Z",
+  "audit_event": "sensitive_data_detected",
+  "correlation_id": "abc-123",
+  "severity": "critical",
+  "category": "pii,secrets",
+  "action": "block",
+  "detail": "Sensitive data detected in query: 3 finding(s)",
+  "metadata": {"finding_count": 3, "categories": ["pii", "secrets"]}
+}
+```
+
+Audit events: `sensitive_data_detected`, `query_blocked`, `response_redacted`, `ingestion_scan`
+
+---
+
 ## 15. Future Roadmap
 
 | Phase | Feature | Effort | Priority |
@@ -1076,6 +1135,7 @@ The `/query` response includes a `guardrails` field with validation results:
 
 | Version | Date | Author | Change Description |
 |---------|------|--------|--------------------|
+| 2.2.0 | 2026-04-02 | Engineering Team | OWASP Agent Threat Protection — sensitive data classifier (PII/PHI/PCI/credentials/secrets, 30+ patterns), DLP engine with block/redact/audit policies, security audit logger, OWASP validators (data exfiltration, indirect injection, excessive agency, system prompt leak), ingestion-time DLP scanning, 93 total guardrails+OWASP tests |
 | 2.1.0 | 2026-04-02 | Engineering Team | Guardrails AI integration — prompt injection detection, topic relevance filtering, context-grounding hallucination check, PII detection & optional redaction, response quality validation, configurable per-validator toggles, guardrails report in query API response, comprehensive test suite (30+ tests) |
 | 1.0.0 | 2026-04-02 | Engineering Team | Initial HLD — full system design covering architecture, components, data flows, security, scalability, deployment, and technology decisions |
 | 2.0.0 | 2026-04-02 | Engineering Team | Principal Engineer upgrade — added resilience primitives (retry with exponential backoff + jitter, circuit breaker), request ID middleware with correlation ID propagation, structured JSON logging, HMAC timing-safe auth, config validation with Pydantic field validators, service registry pattern with graceful shutdown, multi-stage Dockerfile with non-root user, Docker healthchecks, GitHub Actions CI/CD pipeline, Makefile automation, comprehensive test fixtures, Bandit security linting |
