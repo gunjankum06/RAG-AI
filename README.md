@@ -1,45 +1,36 @@
-# RAG AI — Production-Grade Retrieval-Augmented Generation
+# RAG-AI — Production-Grade Retrieval System for LLM Applications
 
-A **scalable, production-ready** RAG system powered by **Ollama** (local LLM) and **ChromaDB** / **FAISS** for vector storage. Designed for real-world deployment with async processing, API-first architecture, document deduplication, reranking, caching, and observability.
+RAG-AI is a modular, production-oriented retrieval system designed to power LLM applications with accurate, low-latency, and context-rich knowledge.
+
+Unlike basic RAG implementations, this system focuses on retrieval quality, hybrid search strategies, and scalable ingestion pipelines to support real-world AI workloads.
+
+## Why RAG-AI?
+
+Naive RAG systems suffer from:
+- Poor retrieval precision
+- High hallucination rates
+- Inefficient query-time computation
+
+RAG-AI addresses these through:
+- Hybrid retrieval (lexical + semantic)
+- Optimized indexing pipelines
+- Retrieval evaluation frameworks
 
 ---
 
 ## Architecture
 
-```
-                          ┌─────────────────────────────────────────────┐
-                          │              FastAPI Gateway                │
-                          │  (Auth · Rate Limit · CORS · Health)       │
-                          └────────┬──────────────────┬────────────────┘
-                                   │                  │
-                    ┌──────────────▼──┐       ┌───────▼────────┐
-                    │  Ingestion API  │       │   Query API    │
-                    │  POST /ingest   │       │  POST /query   │
-                    └──────┬──────────┘       └───────┬────────┘
-                           │                          │
-              ┌────────────▼────────────┐   ┌────────▼─────────────────┐
-              │   Document Pipeline     │   │   Retrieval Pipeline     │
-              │  ┌───────────────────┐  │   │  ┌────────────────────┐  │
-              │  │ Load & Detect     │  │   │  │ Embed Query        │  │
-              │  │ Deduplicate       │  │   │  │ Vector Search      │  │
-              │  │ Chunk (Recursive) │  │   │  │ Rerank (Cross-Enc) │  │
-              │  │ Embed (Batched)   │  │   │  │ Context Assembly   │  │
-              │  │ Store Vectors     │  │   │  │ LLM Generation     │  │
-              │  └───────────────────┘  │   │  │ Stream Response    │  │
-              └────────────┬────────────┘   │  └────────────────────┘  │
-                           │                └──────────┬───────────────┘
-                           ▼                           ▼
-              ┌──────────────────────────────────────────────────┐
-              │          Vector Store (ChromaDB / FAISS)          │
-              │          + Metadata & Document Hashes             │
-              └──────────────────────────────────────────────────┘
-                                       │
-                                       ▼
-              ┌──────────────────────────────────────────────────┐
-              │           Ollama (Local LLM Runtime)             │
-              │     llama3 · mistral · nomic-embed-text          │
-              └──────────────────────────────────────────────────┘
-```
+Query
+  ↓
+Query Processing
+  ↓
+Hybrid Retrieval (BM25 + Vector Search)
+  ↓
+Reranking Layer (Optional)
+  ↓
+Context Builder
+  ↓
+LLM
 
 ## Key Production Features
 
