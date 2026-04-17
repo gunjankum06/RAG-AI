@@ -32,20 +32,44 @@ Context Builder
   ↓
 LLM
 
-## Key Production Features
 
-| Category | Feature |
-|----------|---------|
-| **Scale** | Async ingestion, batched embeddings, connection pooling |
-| **Reliability** | Health checks, graceful shutdown, retry with backoff |
-| **Security** | API key auth, rate limiting, CORS, input sanitization |
-| **Quality** | Cross-encoder reranking, hybrid search, deduplication |
-| **Safety** | Guardrails AI — prompt injection, hallucination, PII detection |
-| **Data Protection** | DLP engine — PII/PHI/PCI/secrets/credentials scanning & redaction |
-| **OWASP** | Agent threat protection — exfiltration, indirect injection, excessive agency |
-| **Ops** | Structured JSON logging, Docker-ready |
-| **Caching** | LRU cache for embeddings, query result caching |
-| **Flexibility** | Pluggable vector store (Chroma / FAISS), swappable models |
+
+## Core Features
+
+- Hybrid Retrieval: Combines BM25 (lexical) and vector search for optimal precision-recall balance
+- Scalable Ingestion: Processes millions of documents with intelligent chunking and indexing
+- Low Latency: Designed for sub-second retrieval performance
+- Modular Design: Pluggable components for retrieval, ranking, and LLM integration
+- Extensible: Can integrate with agents and knowledge systems
+
+## Key Design Decisions
+
+### Why Hybrid Retrieval?
+Vector search alone misses exact keyword matches, while BM25 lacks semantic understanding. Combining both improves robustness.
+
+### Why Not Pure Vector DB?
+Vector-only systems introduce latency and cost challenges at scale.
+
+### Retrieval vs Generation Tradeoff
+Improving retrieval quality directly reduces hallucination in LLM outputs.
+
+## Sample Output
+
+Query: "Explain Kafka exactly once semantics"
+
+Retrieved Context:
+- Doc 1: ...
+- Doc 2: ...
+
+Final Answer:
+<LLM grounded response>
+
+## Roadmap
+
+- Add reranking layer (cross-encoder / LLM reranker)
+- Implement retrieval evaluation (Precision@K, Recall@K)
+- Add caching for embeddings and queries
+- Support multi-hop retrieval
 
 ## Tech Stack
 
